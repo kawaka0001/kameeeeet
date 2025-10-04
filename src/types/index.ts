@@ -23,6 +23,43 @@ export interface RoomConfig {
 }
 
 /**
+ * Database Room Model
+ */
+export interface Room {
+  id: number;
+  room_name: string;
+  password_hash: string | null;
+  creator_token: string;
+  created_at: Date;
+  expires_at: Date | null;
+  max_participants: number;
+  is_active: boolean;
+}
+
+/**
+ * Room API Types
+ */
+export interface CreateRoomRequest {
+  roomName: string;
+  password?: string;
+  maxParticipants?: number;
+  expiresIn?: number; // minutes
+}
+
+export interface CreateRoomResponse {
+  roomName: string;
+  creatorToken: string;
+  hasPassword: boolean;
+}
+
+export interface RoomInfoResponse {
+  roomName: string;
+  hasPassword: boolean;
+  maxParticipants: number;
+  isActive: boolean;
+}
+
+/**
  * Environment Variables
  */
 export interface ServerEnv {
@@ -46,6 +83,13 @@ export enum LogLevel {
 
 export interface LogContext {
   [key: string]: unknown;
+  requestId?: string;
+  duration?: number;
+  endpoint?: string;
+  method?: string;
+  statusCode?: number;
+  userId?: string;
+  ip?: string;
 }
 
 export interface LogEntry {
@@ -53,5 +97,9 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   context?: LogContext;
-  error?: Error;
+  error?: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
 }

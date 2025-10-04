@@ -4,14 +4,16 @@ import { useState } from "react";
 
 interface JoinFormProps {
   roomName: string;
-  onJoin: (participantName: string) => Promise<void>;
+  hasPassword?: boolean;
+  onJoin: (participantName: string, password?: string) => Promise<void>;
 }
 
 /**
  * Form component for joining a room
  */
-export function JoinForm({ roomName, onJoin }: JoinFormProps) {
+export function JoinForm({ roomName, hasPassword = false, onJoin }: JoinFormProps) {
   const [participantName, setParticipantName] = useState("");
+  const [password, setPassword] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,11 +25,16 @@ export function JoinForm({ roomName, onJoin }: JoinFormProps) {
       return;
     }
 
+    if (hasPassword && !password) {
+      setError("Please enter the room password");
+      return;
+    }
+
     setIsJoining(true);
     setError(null);
 
     try {
-      await onJoin(participantName);
+      await onJoin(participantName, hasPassword ? password : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join room");
       setIsJoining(false);
@@ -53,6 +60,20 @@ export function JoinForm({ roomName, onJoin }: JoinFormProps) {
               aria-label="Participant name"
             />
           </div>
+
+          {hasPassword && (
+            <div>
+              <input
+                type="password"
+                placeholder="Enter room password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 border rounded text-black"
+                disabled={isJoining}
+                aria-label="Room password"
+              />
+            </div>
+          )}
 
           {error && (
             <div className="text-red-500 text-sm" role="alert">

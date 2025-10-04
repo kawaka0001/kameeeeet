@@ -1,64 +1,94 @@
 import { AccessToken } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { getServerEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import type { TokenResponse, ErrorResponse } from "@/types";
+import { db } from "@/db";
+import { withApiHandler, createErrorResponse, handleDbError } from "@/lib/api-utils";
+import type { TokenResponse } from "@/types";
 
 /**
  * GET /api/token
  * Generates a LiveKit access token for a participant to join a room
  */
-export async function GET(request: NextRequest) {
-  try {
+export const GET = withApiHandler<TokenResponse>(
+  async (request: NextRequest) => {
+    const requestId = logger.generateRequestId();
+
     const roomName = request.nextUrl.searchParams.get("roomName");
     const participantName = request.nextUrl.searchParams.get("participantName");
+    const password = request.nextUrl.searchParams.get("password");
 
     // Validate parameters
     if (!roomName || !participantName) {
-      logger.warn("Missing required parameters", {
+      logger.warn("Token request missing required parameters", {
+        requestId,
         roomName: !!roomName,
         participantName: !!participantName,
       });
 
-      return NextResponse.json<ErrorResponse>(
-        { error: "Missing roomName or participantName" },
-        { status: 400 }
-      );
+      return createErrorResponse("Missing roomName or participantName", 400);
     }
 
-    // Get validated environment variables
-    const env = getServerEnv();
+    try {
+      // Check if room exists and get its info
+      const room = await db.getRoomByName(roomName);
 
-    // Create access token
-    const at = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, {
-      identity: participantName,
-      ttl: "10h",
-    });
+      // If room has password, verify it
+      if (room?.password_hash) {
+        if (!password) {
+          logger.warn("Password required but not provided", {
+            requestId,
+            roomName,
+            participantName
+          });
+          return createErrorResponse("Password required for this room", 401);
+        }
 
-    at.addGrant({
-      room: roomName,
-      roomJoin: true,
-      canPublish: true,
-      canSubscribe: true,
-    });
+        const isPasswordValid = await bcrypt.compare(password, room.password_hash);
+        if (!isPasswordValid) {
+          logger.warn("Invalid password provided", {
+            requestId,
+            roomName,
+            participantName
+          });
+          return createErrorResponse("Invalid password", 401);
+        }
+      }
 
-    const token = await at.toJwt();
+      // Get validated environment variables
+      const env = getServerEnv();
 
-    logger.info("Token generated successfully", {
-      roomName,
-      participantName,
-    });
+      // Create access token
+      const at = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, {
+        identity: participantName,
+        ttl: "10h",
+      });
 
-    return NextResponse.json<TokenResponse>({ token });
-  } catch (error) {
-    logger.error("Failed to generate token", error as Error);
+      at.addGrant({
+        room: roomName,
+        roomJoin: true,
+        canPublish: true,
+        canSubscribe: true,
+      });
 
-    return NextResponse.json<ErrorResponse>(
-      {
-        error: "Failed to generate token",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
-}
+      const token = await at.toJwt();
+
+      logger.info("Token generated successfully", {
+        requestId,
+        roomName,
+        participantName,
+        hasPassword: !!room?.password_hash,
+      });
+
+      return NextResponse.json<TokenResponse>({ token });
+    } catch (error) {
+      return handleDbError("getToken", error, {
+        requestId,
+        roomName,
+        participantName
+      });
+    }
+  },
+  { endpoint: "/api/token", method: "GET" }
+);
