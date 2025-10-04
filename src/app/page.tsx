@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Home page component
+ * Landing page for the Meet application
+ */
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">

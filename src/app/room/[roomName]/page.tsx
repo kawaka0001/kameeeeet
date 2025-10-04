@@ -2,83 +2,68 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  LiveKitRoom,
-  VideoConference,
-  RoomAudioRenderer,
-} from "@livekit/components-react";
+import { getClientEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import { JoinForm } from "@/components/JoinForm";
+import { VideoRoom } from "@/components/VideoRoom";
+import { ErrorDisplay } from "@/components/ErrorDisplay";
+import type { TokenResponse } from "@/types";
 
+/**
+ * Room page component
+ * Handles the join flow and video conference room
+ */
 export default function RoomPage() {
   const params = useParams();
   const roomName = params.roomName as string;
   const [token, setToken] = useState("");
-  const [participantName, setParticipantName] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
 
-  const handleJoin = async () => {
-    if (!participantName) return;
-
-    setIsJoining(true);
+  /**
+   * Handles participant joining the room
+   */
+  const handleJoin = async (participantName: string) => {
     try {
+      logger.info("Attempting to join room", { roomName, participantName });
+
       const response = await fetch(
         `/api/token?roomName=${encodeURIComponent(
           roomName
         )}&participantName=${encodeURIComponent(participantName)}`
       );
-      const data = await response.json();
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to get token");
+      }
+
+      const data: TokenResponse = await response.json();
       setToken(data.token);
+
+      logger.info("Successfully joined room", { roomName, participantName });
     } catch (error) {
-      console.error("Failed to get token:", error);
-      setIsJoining(false);
+      logger.error("Failed to join room", error as Error, {
+        roomName,
+        participantName,
+      });
+      throw error;
     }
   };
 
-  const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+  // Get LiveKit URL
+  let livekitUrl: string;
+  try {
+    const env = getClientEnv();
+    livekitUrl = env.NEXT_PUBLIC_LIVEKIT_URL;
+  } catch (error) {
+    logger.error("Environment configuration error", error as Error);
+    return <ErrorDisplay message="LiveKit URL not configured" />;
+  }
 
+  // Show join form if not yet joined
   if (!token) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-24">
-        <div className="max-w-md w-full space-y-4">
-          <h1 className="text-2xl font-bold text-center">
-            Join Room: {roomName}
-          </h1>
-          <input
-            type="text"
-            placeholder="Enter your name"
-            value={participantName}
-            onChange={(e) => setParticipantName(e.target.value)}
-            className="w-full px-4 py-2 border rounded"
-            onKeyPress={(e) => e.key === "Enter" && handleJoin()}
-          />
-          <button
-            onClick={handleJoin}
-            disabled={!participantName || isJoining}
-            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-          >
-            {isJoining ? "Joining..." : "Join Room"}
-          </button>
-        </div>
-      </main>
-    );
+    return <JoinForm roomName={roomName} onJoin={handleJoin} />;
   }
 
-  if (!livekitUrl) {
-    return <div>Error: LiveKit URL not configured</div>;
-  }
-
-  return (
-    <div className="h-screen">
-      <LiveKitRoom
-        video={true}
-        audio={true}
-        token={token}
-        serverUrl={livekitUrl}
-        data-lk-theme="default"
-        style={{ height: "100vh" }}
-      >
-        <VideoConference />
-        <RoomAudioRenderer />
-      </LiveKitRoom>
-    </div>
-  );
+  // Show video room
+  return <VideoRoom token={token} serverUrl={livekitUrl} />;
 }

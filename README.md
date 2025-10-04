@@ -81,16 +81,42 @@ meet/
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   └── token/          # LiveKit token generation
+│   │   │   └── token/          # LiveKit token generation API
 │   │   ├── room/
-│   │   │   └── [roomName]/     # Video conference room
-│   │   ├── layout.tsx
+│   │   │   └── [roomName]/     # Video conference room page
+│   │   ├── layout.tsx          # Root layout
 │   │   ├── page.tsx            # Landing page
-│   │   └── globals.css
+│   │   └── globals.css         # Global styles
+│   ├── components/             # Reusable UI components
+│   │   ├── JoinForm.tsx        # Room join form
+│   │   ├── VideoRoom.tsx       # Video conference component
+│   │   └── ErrorDisplay.tsx    # Error display component
+│   ├── lib/                    # Utility libraries
+│   │   ├── env.ts              # Environment variable validation
+│   │   └── logger.ts           # Structured logging
+│   └── types/                  # TypeScript type definitions
+│       └── index.ts            # Shared types
 ├── CLAUDE.md                    # AI development guidelines
 ├── ZEAMI.md                     # Best practices
 └── package.json
 ```
+
+## Architecture
+
+### Type Safety
+- All API responses are typed
+- Environment variables are validated at runtime
+- Component props are strictly typed
+
+### Logging
+- Structured JSON logging in production
+- Pretty console logs in development
+- Context-aware error tracking
+
+### Error Handling
+- Unified error handling across the app
+- User-friendly error messages
+- Comprehensive error logging
 
 ## Usage
 
