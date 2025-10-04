@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
   LiveKitRoom,
   VideoConference,
   RoomAudioRenderer,
 } from "@livekit/components-react";
-import "@livekit/components-styles";
 
 export default function RoomPage() {
   const params = useParams();
